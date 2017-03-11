@@ -1,0 +1,179 @@
+diff -pruN gmusicbrowser.orig/gmusicbrowser_layout.pm gmusicbrowser/gmusicbrowser_layout.pm
+--- gmusicbrowser.orig/gmusicbrowser_layout.pm	2017-03-11 07:42:22.289317674 +0200
++++ gmusicbrowser/gmusicbrowser_layout.pm	2017-03-11 10:15:26.528254714 +0200
+@@ -5414,6 +5414,21 @@ sub new
+ 
+ 	my $turnon= $self->{turnon}= Gtk2::Button->new(_"Turn equalizer on");
+ 	$turnon->signal_connect(clicked=> \&button_cb, 'turn_on');
++	my $turnoff = $self->{turnoff}= Gtk2::Button->new(_"Turn equalizer off");
++	$turnoff->signal_connect(clicked=> \&button_cb, 'turn_off');
++	my $save_preset = $self->{save_preset} = Gtk2::CheckButton->new(_"Append to current song");
++	$save_preset->signal_connect(clicked => sub { ::GMB::Plugin::MEQUALIZER::Save($_[0]->get_active); });
++	$mainbox->pack_start($_,0,0,0) for $turnoff, $save_preset;
++
++	::Watch($self, SongsChanged => sub {
++		if (Songs::Display($::SongID, 'version') && $::Options{equalizer_preset}
++		 && Songs::Display($::SongID, 'version') eq $::Options{equalizer_preset})
++		{   $save_preset->set_active(1);
++		}
++		else
++		{   $save_preset->set_active(0);
++		}
++	});
+ 
+ 	unless ($opt->{notoggle})
+ 	{	my $toggle= $self->{toggle}= Gtk2::ToggleButton->new;
+@@ -5477,6 +5492,11 @@ sub combo_changed_cb
+ 		return
+ 	}
+ 	::SetEqualizer(preset=>$current) if $current ne '';
++	unless (Songs::Display($::SongID, 'version') eq $::Options{equalizer_preset})
++	{	$self->{save_preset}->set_active(0);
++	}
++	$::Options{PLUGIN_MEQUALIZER_EQU_PRESET} = $::Options{equalizer_preset};
++
+ }
+ sub button_cb
+ {	my $self= ::find_ancestor($_[0],__PACKAGE__);
+@@ -5497,6 +5517,13 @@ sub button_cb
+ 	}
+ 	elsif ($action eq 'turn_on')
+ 	{	::SetEqualizer(active=>1);
++		$self->{save_preset}->set_active(0) unless $self->{save_preset}->get_active;
++		$::Options{PLUGIN_MEQUALIZER_EQU_AVAIL} = 1;
++	}
++	elsif ($action eq 'turn_off')
++	{   ::SetEqualizer(active=>0);
++		$self->{save_preset}->set_active(0) unless $self->{save_preset}->get_active;
++		$::Options{PLUGIN_MEQUALIZER_EQU_AVAIL} = 0;
+ 	}
+ }
+ 
+@@ -5572,6 +5599,17 @@ sub update_buttons
+ 		my $current= $self->{combo}->get_active_text;
+ 		$self->{rbutton}->set_sensitive(defined $current && exists $self->{presets}{$current});
+ 	}
++	if (my $s = Songs::Display($::SongID, 'version'))
++	{   if ($s eq $::Options{equalizer_preset})
++		{   $self->{save_preset}->set_active(1);
++		}
++		else
++		{   $self->{save_preset}->set_active(0);
++		}
++	}
++	else
++	{   $self->{save_preset}->set_active(0);
++	}
+ }
+ 
+ package Layout::Equalizer;
+Binary files gmusicbrowser.orig/.gmusicbrowser_layout.pm.un~ and gmusicbrowser/.gmusicbrowser_layout.pm.un~ differ
+diff -pruN gmusicbrowser.orig/gmusicbrowser.pl gmusicbrowser/gmusicbrowser.pl
+--- gmusicbrowser.orig/gmusicbrowser.pl	2017-03-11 07:42:22.288317645 +0200
++++ gmusicbrowser/gmusicbrowser.pl	2017-03-11 09:47:00.260371680 +0200
+@@ -6585,7 +6585,11 @@ sub PrefAudio
+ 	#equalizer
+ 	my $EQbut=Gtk2::Button->new(_"Open Equalizer");
+ 	$EQbut->signal_connect(clicked => sub { OpenSpecialWindow('Equalizer'); });
+-	my $EQcheck=NewPrefCheckButton(use_equalizer => _"Use Equalizer", watch=>1, cb=>sub { SetEqualizer(active=>$::Options{use_equalizer}); });
++	my $EQcheck=NewPrefCheckButton(use_equalizer => _"Use Equalizer", watch=>1,
++		cb => sub {
++			$::Options{PLUGIN_MEQUALIZER_EQU_AVAIL} = $::Options{use_equalizer} ? 1 : 0;
++			SetEqualizer(active=>$::Options{use_equalizer});
++		});
+ 	$sg1->add_widget($EQcheck);
+ 	$sg2->add_widget($EQbut);
+ 	my $EQbox=Hpack($EQcheck,$EQbut);
+Binary files gmusicbrowser.orig/.gmusicbrowser.pl.un~ and gmusicbrowser/.gmusicbrowser.pl.un~ differ
+diff -pruN gmusicbrowser.orig/plugins/mequalizer.pm gmusicbrowser/plugins/mequalizer.pm
+--- gmusicbrowser.orig/plugins/mequalizer.pm	1970-01-01 03:00:00.000000000 +0300
++++ gmusicbrowser/plugins/mequalizer.pm	2017-03-11 10:16:12.220454482 +0200
+@@ -0,0 +1,88 @@
++# Copyright (C) 2017 chinarulezzz <s.alex08@mail.ru>
++#
++# This file is part of Gmusicbrowser.
++# Gmusicbrowser is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License version 3, as
++# published by the Free Software Foundation
++
++=for gmbplugin MEQUALIZER
++name    Mequalizer
++title   Set different equalizer settings for each song.
++desc    Use Equalizer to (un)append equalizer options for all songs or each song.
++=cut
++
++package GMB::Plugin::MEQUALIZER;
++
++use strict;
++use warnings;
++use constant OPT => 'PLUGIN_MEQUALIZER_';
++
++my $handle;
++
++::SetDefaultOptions(OPT,
++    EQU_PRESET   => undef,
++    EQU_AVAIL    => 0,
++);
++
++sub Save {
++    my $is_active = shift;
++    my $song_tag  = Songs::Display($::SongID, 'version');
++
++    if ($is_active) {
++        # Do not replace/save if current equalizer preset eq file tag
++        unless ($song_tag eq $::Options{equalizer_preset})
++        {
++            warn "mequalizer: add '". $::Options{equalizer_preset} ."' to $::SongID\n";
++            Songs::Set($::SongID, version => $::Options{equalizer_preset});
++        }
++    }
++    else
++    {
++        # Erase tag only if tag exists in equalizer presets, and tag eq
++        # current equalizer preset
++        if (grep $_ eq $song_tag, ::GetPresets) {
++            if ($song_tag eq $::Options{equalizer_preset})
++            {
++                warn "mequalizer: remove '". $::Options{equalizer_preset} ."' from $::SongID\n";
++                Songs::Set($::SongID, version => "");
++            }
++        }
++    }
++}
++
++sub Start {
++    $handle = {};
++    ::Watch($handle, PlayingSong => \&SongChanged);
++}
++
++sub Stop {
++    ::UnWatch($handle, 'PlayingSong');
++}
++
++sub SongChanged {
++    return unless defined $::SongID;
++
++    my $preset = Songs::Display($::SongID, 'version');
++
++    if ($preset && exists $::Options{equalizer_presets}{$preset}) {
++        ::SetEqualizer(smart  => $preset);
++        ::SetEqualizer(active => 1);
++    } else {
++        ::SetEqualizer(smart  => $::Options{OPT.'EQU_PRESET'});
++        ::SetEqualizer(active => $::Options{OPT.'EQU_AVAIL'});
++    }
++}
++
++sub prefbox {
++    my $vbox = Gtk2::VBox->new(0, 2);
++    my $desc = Gtk2::Label->new(
++        _("!!!ATTENTION TORRENT USERS!!!\n".
++          "Plugin write equalizers option into songs Version tag.\n".
++          "So, the file hash will change, torrent client will overwrite the file,\n".
++          "and equalizer settings will be lost. Be aware!\n")
++      );
++    $vbox->pack_start($desc, 0, 0, 1);
++    return $vbox;
++}
++
++1
