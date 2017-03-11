@@ -1,0 +1,20 @@
+diff -pruN gmusicbrowser.orig/po/ru.po gmusicbrowser/po/ru.po
+--- gmusicbrowser.orig/po/ru.po	2017-03-11 08:43:46.940792598 +0000
++++ gmusicbrowser/po/ru.po	2017-03-11 10:07:54.667254318 +0000
+@@ -3649,6 +3649,15 @@ msgstr "Верхний правый"
+ msgid "Use Equalizer"
+ msgstr "Использовать эквалайзер"
+ 
++msgid "Turn equalizer off"
++msgstr "Выключить эквалайзер"
++
++msgid "Turn equalizer on"
++msgstr "Включить эквалайзер"
++
++msgid "Append to current song"
++msgstr "Применить к текущей песне"
++
+ msgid ""
+ "Use ID3v2.4 instead of ID3v2.3 when creating an ID3v2 tag, ID3v2.3 are "
+ "probably better supported by other softwares"
+
