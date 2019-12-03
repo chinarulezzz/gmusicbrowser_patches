@@ -1,0 +1,49 @@
+From bcced16c8bfd51406c680d65bc486e8142c1a0ea Mon Sep 17 00:00:00 2001
+From: Alexandr Savca <alexandr.savca89@gmail.com>
+Date: Tue, 3 Dec 2019 15:34:19 +0200
+Subject: [PATCH 2/4] fix musixmatch plugin
+
+---
+ plugins/lyrics.pm | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/plugins/lyrics.pm b/plugins/lyrics.pm
+index 8e2cce7..4eca089 100644
+--- a/plugins/lyrics.pm
++++ b/plugins/lyrics.pm
+@@ -76,16 +76,22 @@ my %Sites=	# id => [name,url,?post?,function]	if the function return 1 => lyrics
+ 				return $notfound if $_[0]=~m!This is a list of songs not being assigned to an artist yet!; #help out page
+ 				return 0 if $_[0]=~m!&#91;&#46;&#46;&#46;&#93;(?:<br ?/>)*<i>!; # truncated lyrics : "[...]" followed by italic explanation => not auto-saved
+ 				return !!$1;
+-			}],	
+-	musixmatch =>   [musixmatch => 'https://www.musixmatch.com/lyrics/%a/%t', undef,
+-                         sub {
+-                            if ($_[0] =~ /<span id="lyrics-html"/) {
+-                                $_[0] =~ s/.*<span id="lyrics-html".+?>(.+?)<\/span>.*/$1/s;
+-                                $_[0] =~ s/[\r\n]/<br>/g;
+-                            } else {
+-                                $_[0] = $notfound;
+-                            }
+-                        }],
++			}],
++	musixmatch =>	[musixmatch => sub {
++			::ReplaceFields($_[0], 'https://www.musixmatch.com/lyrics/%a/%t', sub {
++				$_[0]	=~ s/ (&|\*|\-) / /gr
++					=~ s/(\'|\,|\.) / /gr
++					=~ s/\(.*?\)//gr # remove comments in parenthesis: a.e. (Extended Version), (Chillout Mix), etc.
++					=~ s/^\s+|\s+$//gr
++				});
++			},
++			undef,
++			sub {
++				my $lyric;
++				if ($_[0] =~ /"body":"(.*?)","/) { $lyric = $1 =~ s|\\n|<br>|gr =~ s|\\(["'])|$1|gr; }
++				$_[0] = $lyric || $notfound;
++				return !!$lyric;
++			}],
+        #lyricwikiapi => [lyricwiki => 'http://lyricwiki.org/api.php?artist=%a&song=%t&fmt=html',undef,
+ 	#	sub { $_[0]!~m#<pre>\W*Not found\W*</pre>#s }],
+ 	#azlyrics => [ azlyrics => 'http://search.azlyrics.com/cgi-bin/azseek.cgi?q="%a"+"%t"'],
+-- 
+2.24.0
+

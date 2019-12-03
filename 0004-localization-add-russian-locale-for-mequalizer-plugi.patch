@@ -1,6 +1,16 @@
-diff -pruN gmusicbrowser.orig/po/ru.po gmusicbrowser/po/ru.po
---- gmusicbrowser.orig/po/ru.po	2017-03-11 08:43:46.940792598 +0000
-+++ gmusicbrowser/po/ru.po	2017-03-11 10:07:54.667254318 +0000
+From 789f25457011fd2c30945216f637b3318a0ad534 Mon Sep 17 00:00:00 2001
+From: Alexandr Savca <alexandr.savca89@gmail.com>
+Date: Tue, 3 Dec 2019 15:51:21 +0200
+Subject: [PATCH 4/4] localization: add russian locale for mequalizer plugin
+
+---
+ po/ru.po | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/po/ru.po b/po/ru.po
+index 72f84fd..f69ff8e 100644
+--- a/po/ru.po
++++ b/po/ru.po
 @@ -3649,6 +3649,15 @@ msgstr "Верхний правый"
  msgid "Use Equalizer"
  msgstr "Использовать эквалайзер"
@@ -17,4 +27,6 @@ diff -pruN gmusicbrowser.orig/po/ru.po gmusicbrowser/po/ru.po
  msgid ""
  "Use ID3v2.4 instead of ID3v2.3 when creating an ID3v2 tag, ID3v2.3 are "
  "probably better supported by other softwares"
+-- 
+2.24.0
 

@@ -2,20 +2,22 @@ Some gmusicbrowser patches & fixes
 ==================================
 NOTE: All diff's are prepared for git version of gmusicbrowser.
 
-- 001_fix_lyrics_wikia.patch
+
+
+- 0001-lyrics-plugin-fix-lyrics.wikia.com-garbage.patch
 
     BUG: lyrics.wikia.com display HelpOut page when song not found
 
-- 8538-92f1.001.lyricwiki_musixmatch.git.patch
+- 0002-fix-musixmatch-plugin.patch
 
     Fix previous bug and add new lyrics source to improve support of non-english texts
 
-- 8538-92f1.001.mequalizer.git.patch
+- 0003-plugins-add-mequalizer-plugin.patch
 
     Set different equalizer settings for each song.
     ![image (16K)][scrshot img]
 
-- 8538-92f1.002.mequalizer_ru.git.patch
+- 0004-localization-add-russian-locale-for-mequalizer-plugi.patch
 
     Russian localization for (m)equalizer
 
